@@ -1,0 +1,121 @@
+---
+project: Greencat
+kind: PIPELINE
+name: Update OpenCart Deployment
+enabled: true
+concurrency: 10
+ciWorkspace:
+  endpoint: ''
+  image: ''
+  registry: ''
+  path: ''
+  cache:
+  - ''
+stageOrder:
+- Update AWS Deployment
+- QA Test and Approval
+- Update in Azure
+stages:
+  Update in Azure:
+    taskOrder:
+    - Delete Current Azure Deployment
+    - Deploy Azure Deployment
+    - Update OpenCart Theme
+    tasks:
+      Update OpenCart Theme:
+        type: SSH
+        input:
+          privatekey: ''
+          password: s2enc~QLJhR9ZEpy6UAgaHLj+mGA==
+          workingDirectory: ''
+          environmentVariables: {
+            }
+          host: ${Update in Azure.Deploy Azure Deployment.output.deploymentDetails.resources.mysql.address}
+          arguments: [
+            ]
+          passphrase: ''
+          script: |-
+            sleep 300
+            git clone https://github.com/mcclanc/oc-electro-theme.git
+            cd oc-electro-theme
+            mysql -u ocuser opencart < cmd.txt
+          username: demouser
+      Delete Current Azure Deployment:
+        type: Blueprint
+        input:
+          _deploymentFlag: false
+          action: DeleteDeployment
+          deploymentName: OC-Azure Environment
+      Deploy Azure Deployment:
+        type: Blueprint
+        input:
+          blueprint: OpenCart Demo
+          action: CreateDeployment
+          deploymentName: OC-Azure v2 Environment
+          version: '1.4'
+          parameters: {
+            pass: VMware1!,
+            user: demouser,
+            placement: Azure
+          }
+  QA Test and Approval:
+    taskOrder:
+    - QA Testing and Approval
+    tasks:
+      QA Testing and Approval:
+        type: UserOperation
+        endpoints:
+          emailServer: Codestream-Default-Email
+        input:
+          summary: QA Test Updated OpenCart in AWS
+          pipelineName: ${name}
+          expirationInDays: 3
+          approverGroups: [
+            ]
+          approvers: [
+            mcmahonj@vmware.com]
+          description: 'QA Team, Please test and approve the updated OpenCart Deployment at IP: ${Update
+            AWS Deployment.Deploy AWS Deployment.output.deploymentDetails.resources.frontend.address}'
+          sendemail: true
+  Update AWS Deployment:
+    taskOrder:
+    - Delete Current AWS Deployment
+    - Deploy AWS Deployment
+    - Update OpenCart Theme
+    tasks:
+      Update OpenCart Theme:
+        type: SSH
+        input:
+          privatekey: ''
+          password: s2enc~QLJhR9ZEpy6UAgaHLj+mGA==
+          workingDirectory: ''
+          environmentVariables: {
+            }
+          host: ${Update AWS Deployment.Deploy AWS Deployment.output.deploymentDetails.resources.mysql.address}
+          arguments: [
+            ]
+          passphrase: ''
+          script: |-
+            sleep 300
+            git clone https://github.com/mcmahonj12/oc-electro-theme.git
+            cd oc-electro-theme
+            mysql -u ocuser opencart < cmd.txt
+          username: demouser
+      Delete Current AWS Deployment:
+        type: Blueprint
+        input:
+          _deploymentFlag: false
+          action: DeleteDeployment
+          deploymentName: OC-AWS Environment
+      Deploy AWS Deployment:
+        type: Blueprint
+        input:
+          blueprint: OpenCart Demo
+          action: CreateDeployment
+          deploymentName: OC-AWS v2 Environment
+          version: '1.4'
+          parameters: {
+            pass: VMware1!,
+            user: demouser,
+            placement: AWS
+          }
