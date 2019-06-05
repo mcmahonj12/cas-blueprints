@@ -1,0 +1,79 @@
+---
+project: Greencat
+kind: PIPELINE
+name: Initial OpenCart Deployment
+enabled: true
+concurrency: 10
+ciWorkspace:
+  endpoint: ''
+  image: ''
+  registry: ''
+  path: ''
+  cache:
+  - ''
+stageOrder:
+- OpenCart Deploy to AWS
+- QA Testing and Approval
+- OpenCart Deploy to Azure
+stages:
+  OpenCart Deploy to Azure:
+    taskOrder:
+    - Deploy to Azure
+    tasks:
+      Deploy to Azure:
+        type: Blueprint
+        input:
+          blueprint: OpenCart Demo
+          action: CreateDeployment
+          deploymentName: OC-Azure Environment
+          version: '1.4'
+          parameters: {
+            pass: VMware1!,
+            user: demouser,
+            placement: Azure
+          }
+  OpenCart Deploy to AWS:
+    taskOrder:
+    - Deploy OC
+    tasks:
+      Deploy OC:
+        type: Blueprint
+        input:
+          blueprint: OpenCart Demo
+          action: CreateDeployment
+          deploymentName: OC-AWS Environment
+          version: '1.4'
+          parameters: {
+            pass: VMware1!,
+            user: demouser,
+            placement: AWS
+          }
+  QA Testing and Approval:
+    taskOrder:
+    - QA Approval
+    tasks:
+      QA Approval:
+        type: UserOperation
+        endpoints:
+          emailServer: Codestream-Default-Email
+        input:
+          summary: QA Approval Notification
+          pipelineName: ${name}
+          expirationInDays: 3
+          approverGroups: [
+            ]
+          approvers: [
+            mcmahonj@vmware.com]
+          description: "Please perform QA test and approval for the deployment to Production.\n \nYour\
+            \ Test environment can be accessed here:\n${OpenCart Deploy to AWS.Deploy OC.output.deploymentDetails.resources.frontend.address}"
+          sendemail: true
+notifications:
+  email:
+  - event: SUCCESS
+    stage: OpenCart Deploy to Azure
+    subject: Intial Deployment Complete
+    task: Deploy to Azure
+    endpoint: Codestream-Default-Email
+    body: The initial deployment is complete.
+    to:
+    - mcmahonj@vmware.com
